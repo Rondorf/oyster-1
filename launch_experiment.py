@@ -123,7 +123,7 @@ def deep_update_dict(fr, to):
 
 @click.command()
 @click.argument('config', default=None)
-@click.option('--gpu', default=0)
+@click.option('--gpu', default=1)
 @click.option('--docker', is_flag=True, default=False)
 @click.option('--debug', is_flag=True, default=False)
 def main(config, gpu, docker, debug):
