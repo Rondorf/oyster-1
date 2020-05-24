@@ -17,5 +17,5 @@ __pycache__
 *.pth
 *live.ipynb
 
-/output
-/output/**
+#/output
+#/output/**
