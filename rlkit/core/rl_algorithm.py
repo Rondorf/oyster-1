@@ -384,7 +384,8 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             for r in range(self.num_evals):
                 paths = self.collect_paths(idx, epoch, r)
                 all_rets.append([eval_util.get_average_returns([p]) for p in paths])
-            final_returns.append(np.mean([a[-1] for a in all_rets]))
+            # final_returns.append(np.mean([a[-1] for a in all_rets]))
+            final_returns.append(np.mean([np.sum(a) for a in all_rets]))
             # record online returns for the first n trajectories
             n = min([len(a) for a in all_rets])
             all_rets = [a[:n] for a in all_rets]

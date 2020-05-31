@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" autoUpload="Always" serverName="rll-robot-lab1">
+    <serverData>
+      <paths name="rll-robot-lab1">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/ron/Projects/oyster-1" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="rll-robot-lab2">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/ron/oyster-1" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
+  </component>
+</project>
