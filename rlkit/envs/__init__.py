@@ -21,6 +21,9 @@ def register_env(name):
 
 # automatically import any envs in the envs/ directory
 for file in os.listdir(os.path.dirname(__file__)):
-    if file.endswith('point_robot.py') and not file.startswith('_'):
+    if file.endswith('.py') and not file.startswith('_'):
         module = file[:file.find('.py')]
-        importlib.import_module('rlkit.envs.' + module)
+        try:
+            importlib.import_module('rlkit.envs.' + module)
+        except:
+            print('Could not import ' + module)
