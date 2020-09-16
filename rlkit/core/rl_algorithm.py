@@ -377,15 +377,26 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
         return paths
 
     def _do_eval(self, indices, epoch):
+        evaluate_success_rate = self.env.wrapped_env.__class__.__name__.startswith('Sawyer')
+
         final_returns = []
         online_returns = []
+        if evaluate_success_rate:
+            success_rates = []
+
         for idx in indices:
             all_rets = []
+            if evaluate_success_rate:
+                all_success_rates = []
             for r in range(self.num_evals):
                 paths = self.collect_paths(idx, epoch, r)
                 all_rets.append([eval_util.get_average_returns([p]) for p in paths])
+                if evaluate_success_rate:
+                    all_success_rates.append([eval_util.get_average_success_rates([p]) for p in paths])
             # final_returns.append(np.mean([a[-1] for a in all_rets]))
             final_returns.append(np.mean([np.sum(a) for a in all_rets]))
+            if evaluate_success_rate:
+                success_rates.append(np.mean([a[-1] for a in all_success_rates]))
             # record online returns for the first n trajectories
             n = min([len(a) for a in all_rets])
             all_rets = [a[:n] for a in all_rets]
@@ -393,7 +404,10 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             online_returns.append(all_rets)
         n = min([len(t) for t in online_returns])
         online_returns = [t[:n] for t in online_returns]
-        return final_returns, online_returns
+        if evaluate_success_rate:
+            return final_returns, online_returns, success_rates
+        else:
+            return final_returns, online_returns
 
     def evaluate(self, epoch):
         if self.eval_statistics is None:
@@ -436,13 +450,19 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
             train_returns.append(eval_util.get_average_returns(paths))
         train_returns = np.mean(train_returns)
         ### eval train tasks with on-policy data to match eval of test tasks
-        train_final_returns, train_online_returns = self._do_eval(indices, epoch)
+        if self.env.wrapped_env.__class__.__name__.startswith('Sawyer'):
+            train_final_returns, train_online_returns, train_success_rates = self._do_eval(indices, epoch)
+        else:
+            train_final_returns, train_online_returns = self._do_eval(indices, epoch)
         eval_util.dprint('train online returns')
         eval_util.dprint(train_online_returns)
 
         ### test tasks
         eval_util.dprint('evaluating on {} test tasks'.format(len(self.eval_tasks)))
-        test_final_returns, test_online_returns = self._do_eval(self.eval_tasks, epoch)
+        if self.env.wrapped_env.__class__.__name__.startswith('Sawyer'):
+            test_final_returns, test_online_returns, test_success_rate = self._do_eval(self.eval_tasks, epoch)
+        else:
+            test_final_returns, test_online_returns = self._do_eval(self.eval_tasks, epoch)
         eval_util.dprint('test online returns')
         eval_util.dprint(test_online_returns)
 
@@ -454,11 +474,19 @@ class MetaRLAlgorithm(metaclass=abc.ABCMeta):
 
         avg_train_return = np.mean(train_final_returns)
         avg_test_return = np.mean(test_final_returns)
+        if self.env.wrapped_env.__class__.__name__.startswith('Sawyer'):
+            avg_train_sr = np.mean(train_success_rates)
+            avg_test_sr = np.mean(test_success_rate)
         avg_train_online_return = np.mean(np.stack(train_online_returns), axis=0)
         avg_test_online_return = np.mean(np.stack(test_online_returns), axis=0)
         self.eval_statistics['AverageTrainReturn_all_train_tasks'] = train_returns
         self.eval_statistics['AverageReturn_all_train_tasks'] = avg_train_return
         self.eval_statistics['AverageReturn_all_test_tasks'] = avg_test_return
+        if self.env.wrapped_env.__class__.__name__.startswith('Sawyer'):
+            avg_train_sr = np.mean(train_success_rates)
+            avg_test_sr = np.mean(test_success_rate)
+            self.eval_statistics['AverageSuccessRate_all_train_tasks'] = avg_train_sr
+            self.eval_statistics['AverageSuccessRate_all_test_tasks'] = avg_test_sr
         logger.save_extra_data(avg_train_online_return, path='online-train-epoch{}'.format(epoch))
         logger.save_extra_data(avg_test_online_return, path='online-test-epoch{}'.format(epoch))
 

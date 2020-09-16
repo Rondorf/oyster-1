@@ -44,6 +44,17 @@ def get_average_returns(paths):
     return np.mean(returns)
 
 
+def get_average_success_rates(paths):
+    successes = []
+    for path in paths:
+        is_success = 0.
+        for info in path["env_infos"]:
+            if info["success"]:
+                is_success = 1.
+        successes.append(is_success)
+    return np.mean(successes)
+
+
 def create_stats_ordered_dict(
         name,
         data,
