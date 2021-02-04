@@ -3,6 +3,9 @@ import numpy as np
 import os
 
 
+def identity(x):
+    return x
+
 def soft_update_from_to(source, target, tau):
     for target_param, param in zip(target.parameters(), source.parameters()):
         target_param.data.copy_(
@@ -89,11 +92,11 @@ def gpu_enabled():
 
 # noinspection PyPep8Naming
 def FloatTensor(*args, **kwargs):
-    return torch.FloatTensor(*args, **kwargs).to(device)
+    return torch.FloatTensor(*args, **kwargs).cuda()
 
 
 def from_numpy(*args, **kwargs):
-    return torch.from_numpy(*args, **kwargs).float().to(device)
+    return torch.from_numpy(*args, **kwargs).float().cuda()
 
 
 def get_numpy(tensor):

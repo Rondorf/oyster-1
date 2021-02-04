@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torch import nn as nn
 import torch.nn.functional as F
-
+from rlkit.torch.data_augs import augment_obs
 import rlkit.torch.pytorch_util as ptu
 
 
@@ -75,9 +75,9 @@ class PEARLAgent(nn.Module):
         # reset distribution over z to the prior
         mu = ptu.zeros(num_tasks, self.latent_dim)
         if self.use_ib:
-            var = ptu.ones(num_tasks, self.latent_dim)
+            var = torch.ones(num_tasks, self.latent_dim).cuda()
         else:
-            var = ptu.zeros(num_tasks, self.latent_dim)
+            var = torch.zeros(num_tasks, self.latent_dim).cuda()
         self.z_means = mu
         self.z_vars = var
         # sample a new z from the prior
@@ -185,6 +185,164 @@ class PEARLAgent(nn.Module):
     def networks(self):
         return [self.context_encoder, self.policy]
 
+
+class PEARLImageAgent(nn.Module):
+    def __init__(self,
+                 latent_dim,
+                 context_encoder,
+                 policy,
+                 **kwargs
+    ):
+        super().__init__()
+        self.latent_dim = latent_dim
+
+        self.context_encoder = context_encoder
+        self.policy = policy
+
+        self.recurrent = kwargs['recurrent']
+        self.use_ib = kwargs['use_information_bottleneck']
+        self.sparse_rewards = kwargs['sparse_rewards']
+        self.use_next_obs_in_context = kwargs['use_next_obs_in_context']
+
+        # initialize buffers for z dist and z
+        # use buffers so latent context can be saved along with model weights
+        self.register_buffer('z', torch.zeros(1, latent_dim))
+        self.register_buffer('z_means', torch.zeros(1, latent_dim))
+        self.register_buffer('z_vars', torch.zeros(1, latent_dim))
+
+        self.clear_z()
+
+    def clear_z(self, num_tasks=1):
+        '''
+        reset q(z|c) to the prior
+        sample a new z from the prior
+        '''
+        # reset distribution over z to the prior
+        mu = torch.zeros(num_tasks, self.latent_dim).cuda()
+        if self.use_ib:
+            var = torch.ones(num_tasks, self.latent_dim).cuda()
+        else:
+            var = torch.zeros(num_tasks, self.latent_dim).cuda()
+        self.z_means = mu
+        self.z_vars = var
+        # sample a new z from the prior
+        self.sample_z()
+        # reset the context collected so far
+        self.context = None
+        self.image_context = None
+        # reset any hidden state in the encoder network (relevant for RNN)
+        self.context_encoder.reset(num_tasks)
+
+    def detach_z(self):
+        ''' disable backprop through z '''
+        self.z = self.z.detach()
+        if self.recurrent:
+            self.context_encoder.hidden = self.context_encoder.hidden.detach()
+
+    def update_context(self, inputs):
+        ''' append single transition to the current context '''
+        o, a, r, no, d, info = inputs
+        if self.sparse_rewards:
+            r = info['sparse_reward']
+        o = ptu.from_numpy(o[None, None, ...])
+        a = ptu.from_numpy(a[None, None, ...])
+        r = ptu.from_numpy(np.array([r])[None, None, ...])
+        no = ptu.from_numpy(no[None, None, ...])
+
+        data = torch.cat([a, r], dim=2)
+        if self.use_next_obs_in_context:
+            image_data = torch.cat([o, no], dim=2)
+        else:
+            image_data = o
+        if self.context is None:
+            self.context = data
+            self.image_context = image_data
+        else:
+            self.context = torch.cat([self.context, data], dim=1)
+            self.image_context = torch.cat([self.image_context, image_data], dim=1)
+
+
+    def compute_kl_div(self):
+        ''' compute KL( q(z|c) || r(z) ) '''
+        prior = torch.distributions.Normal(torch.zeros(self.latent_dim).cuda(), torch.ones(self.latent_dim).cuda())
+        posteriors = [torch.distributions.Normal(mu, torch.sqrt(var)) for mu, var in zip(torch.unbind(self.z_means), torch.unbind(self.z_vars))]
+        kl_divs = [torch.distributions.kl.kl_divergence(post, prior) for post in posteriors]
+        kl_div_sum = torch.sum(torch.stack(kl_divs))
+        return kl_div_sum
+
+    def infer_posterior(self, image_context, context):
+        ''' compute q(z|c) as a function of input context and sample new z from it'''
+        t, b, _, _, _ = image_context.size()
+        image_context = image_context.view(t * b, *image_context.shape[2:])
+        context = context.view(t * b, *context.shape[2:])
+        image_context = augment_obs(image_context, random=False) #.squeeze(dim=0)
+        #context = context.squeeze(dim=0)
+        params = self.context_encoder(image_context, context)
+        params = params.view(t, b, self.context_encoder.output_size)
+        #params = params.view(context.size(0), -1, self.context_encoder.output_size)
+        # with probabilistic z, predict mean and variance of q(z | c)
+        if self.use_ib:
+            mu = params[..., :self.latent_dim]
+            sigma_squared = F.softplus(params[..., self.latent_dim:])
+            z_params = [_product_of_gaussians(m, s) for m, s in zip(torch.unbind(mu), torch.unbind(sigma_squared))]
+            self.z_means = torch.stack([p[0] for p in z_params])
+            self.z_vars = torch.stack([p[1] for p in z_params])
+        # sum rather than product of gaussians structure
+        else:
+            self.z_means = torch.mean(params, dim=1)
+        self.sample_z()
+
+    def sample_z(self):
+        if self.use_ib:
+            posteriors = [torch.distributions.Normal(m, torch.sqrt(s)) for m, s in zip(torch.unbind(self.z_means), torch.unbind(self.z_vars))]
+            z = [d.rsample() for d in posteriors]
+            self.z = torch.stack(z)
+        else:
+            self.z = self.z_means
+
+    def get_action(self, obs, deterministic=False):
+        ''' sample action from the policy, conditioned on the task embedding '''
+        z = self.z.cuda()
+        obs = ptu.from_numpy(obs[None])
+        obs = augment_obs(obs, random=False)
+        #in_ = torch.cat([obs, z], dim=1)
+        #return self.policy.get_action(in_, deterministic=deterministic)
+        return self.policy.get_action(obs, deterministic=deterministic, additional_input=z)
+
+    def set_num_steps_total(self, n):
+        self.policy.set_num_steps_total(n)
+
+    def forward(self, obs, image_context, context, aug_random=False):
+        ''' given context, get statistics under the current policy of a set of observations '''
+        self.infer_posterior(image_context, context)
+        self.sample_z()
+
+        task_z = self.z
+
+        t, b, _, _, _ = obs.size()
+        obs = obs.view(t * b, *obs.shape[2:])
+        obs = augment_obs(obs, random=aug_random)
+        task_z = [z.repeat(b, 1) for z in task_z]
+        task_z = torch.cat(task_z, dim=0)
+
+        # run policy, get log probs and new actions
+        #in_ = torch.cat([obs, task_z.detach()], dim=1)
+        policy_outputs = self.policy(obs, reparameterize=True, return_log_prob=True, additional_input=task_z.detach())
+
+        return policy_outputs, task_z
+
+    def log_diagnostics(self, eval_statistics):
+        '''
+        adds logging data about encodings to eval_statistics
+        '''
+        z_mean = np.mean(np.abs(ptu.get_numpy(self.z_means[0])))
+        z_sig = np.mean(ptu.get_numpy(self.z_vars[0]))
+        eval_statistics['Z mean eval'] = z_mean
+        eval_statistics['Z variance eval'] = z_sig
+
+    @property
+    def networks(self):
+        return [self.context_encoder, self.policy]
 
 
 

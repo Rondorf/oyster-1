@@ -1,0 +1,135 @@
+----------------------------------  ---------------
+Z mean train                            0.00177787
+Z variance train                        0.000675803
+KL Divergence                         252.012
+KL Loss                               252.012
+QF Loss                             21974.4
+VF Loss                                 1.89044
+Policy Loss                            -1.32811
+Q Predictions Mean                      0.00518842
+Q Predictions Std                       9.15618e-05
+Q Predictions Max                       0.00554287
+Q Predictions Min                       0.00475464
+V Predictions Mean                     -0.0121781
+V Predictions Std                       5.60321e-05
+V Predictions Max                      -0.0119904
+V Predictions Min                      -0.0123722
+Log Pis Mean                           -1.34455
+Log Pis Std                             0.306691
+Log Pis Max                            -0.540416
+Log Pis Min                            -3.04129
+Policy mu Mean                          0.000507548
+Policy mu Std                           0.000159715
+Policy mu Max                           0.000733449
+Policy mu Min                           0.000149967
+Policy log std Mean                    -0.00107219
+Policy log std Std                      0.00188679
+Policy log std Max                      0.000980451
+Policy log std Min                     -0.00301745
+Z mean eval                             0.420715
+Z variance eval                         0.226932
+AverageTrainReturn_all_train_tasks      0.7
+AverageReturn_all_train_tasks           1.975
+AverageReturn_all_test_tasks            0.5
+Number of train steps total          1000
+Number of env steps total           26000
+Number of rollouts total                0
+Train Time (s)                        130.411
+(Previous) Eval Time (s)                0
+Sample Time (s)                        43.2357
+Epoch Time (s)                        173.647
+Total Train Time (s)                  181.684
+Epoch                                   0
+----------------------------------  ---------------
+2021-02-02 11:33:43.752510 IST | [2021_02_02_11_30_42] Iteration #0 | Epoch Duration: 181.68865942955017
+2021-02-02 11:33:43.752778 IST | [2021_02_02_11_30_42] Iteration #0 | Started Training: False
+----------------------------------  ------------
+Z mean train                            0.823422
+Z variance train                        0.025901
+KL Divergence                         133.768
+KL Loss                               133.768
+QF Loss                              4101.78
+VF Loss                                38.9931
+Policy Loss                           258.197
+Q Predictions Mean                   -276.246
+Q Predictions Std                      35.3513
+Q Predictions Max                    -136.771
+Q Predictions Min                    -444.445
+V Predictions Mean                   -264.083
+V Predictions Std                      33.5423
+V Predictions Max                    -141.703
+V Predictions Min                    -409.644
+Log Pis Mean                            1.60501
+Log Pis Std                             1.50426
+Log Pis Max                             3.73929
+Log Pis Min                            -9.6254
+Policy mu Mean                          1.38814
+Policy mu Std                           0.576275
+Policy mu Max                           1.97564
+Policy mu Min                           0.808426
+Policy log std Mean                    -0.422397
+Policy log std Std                      0.232201
+Policy log std Max                     -0.189453
+Policy log std Min                     -0.65833
+Z mean eval                             0.973447
+Z variance eval                         0.704938
+AverageTrainReturn_all_train_tasks      2.15
+AverageReturn_all_train_tasks           5.375
+AverageReturn_all_test_tasks            2.125
+Number of train steps total          2000
+Number of env steps total           36000
+Number of rollouts total                0
+Train Time (s)                         95.8538
+(Previous) Eval Time (s)                8.03943
+Sample Time (s)                         8.84327
+Epoch Time (s)                        112.737
+Total Train Time (s)                  300.635
+Epoch                                   1
+----------------------------------  ------------
+2021-02-02 11:35:42.705402 IST | [2021_02_02_11_30_42] Iteration #1 | Epoch Duration: 118.95245361328125
+2021-02-02 11:35:42.705735 IST | [2021_02_02_11_30_42] Iteration #1 | Started Training: False
+----------------------------------  -------------
+Z mean train                            0.619028
+Z variance train                        0.0268013
+KL Divergence                         134.963
+KL Loss                               134.963
+QF Loss                             10021.9
+VF Loss                                15.2578
+Policy Loss                           361.592
+Q Predictions Mean                   -383.906
+Q Predictions Std                      89.9301
+Q Predictions Max                    -109.27
+Q Predictions Min                    -797.223
+V Predictions Mean                   -364.804
+V Predictions Std                      87.8793
+V Predictions Max                     -85.1857
+V Predictions Min                    -816.984
+Log Pis Mean                            1.4618
+Log Pis Std                             1.37434
+Log Pis Max                             5.18083
+Log Pis Min                            -6.00695
+Policy mu Mean                          0.788387
+Policy mu Std                           1.2352
+Policy mu Max                           2.24456
+Policy mu Min                          -2.21745
+Policy log std Mean                    -0.550189
+Policy log std Std                      0.202807
+Policy log std Max                     -0.210135
+Policy log std Min                     -1.11076
+Z mean eval                             1.56062
+Z variance eval                         1.10298
+AverageTrainReturn_all_train_tasks      0
+AverageReturn_all_train_tasks           7
+AverageReturn_all_test_tasks            0.475
+Number of train steps total          3000
+Number of env steps total           46000
+Number of rollouts total                0
+Train Time (s)                        143.799
+(Previous) Eval Time (s)               14.2549
+Sample Time (s)                        17.5082
+Epoch Time (s)                        175.563
+Total Train Time (s)                  477.296
+Epoch                                   2
+----------------------------------  -------------
+2021-02-02 11:38:39.367146 IST | [2021_02_02_11_30_42] Iteration #2 | Epoch Duration: 176.661203622818
+2021-02-02 11:38:39.367451 IST | [2021_02_02_11_30_42] Iteration #2 | Started Training: False

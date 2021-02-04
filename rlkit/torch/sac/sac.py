@@ -7,10 +7,11 @@ from torch import nn as nn
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.core.eval_util import create_stats_ordered_dict
-from rlkit.core.rl_algorithm import MetaRLAlgorithm
+from rlkit.core.rl_algorithm import MetaRLAlgorithm, MetaRLAlgorithmImage
+from rlkit.torch.data_augs import augment_obs
 
 
-class PEARLSoftActorCritic(MetaRLAlgorithm):
+class PEARLSoftActorCriticImage(MetaRLAlgorithmImage):
     def __init__(
             self,
             env,
@@ -66,7 +67,7 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
         self.use_next_obs_in_context = use_next_obs_in_context
 
         self.qf1, self.qf2, self.vf = nets[1:]
-        self.target_vf = self.vf.copy()
+        self.target_vf = self.vf.copy().cuda()
 
         self.policy_optimizer = optimizer_class(
             self.agent.policy.parameters(),
@@ -99,10 +100,11 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
             net.train(mode)
 
     def to(self, device=None):
-        if device == None:
-            device = ptu.device
-        for net in self.networks:
-            net.to(device)
+        pass
+        #if device == None:
+        #    device = ptu.device
+        #for net in self.networks:
+        #    net.to(device)
 
     ##### Data handling #####
     def unpack_batch(self, batch, sparse_reward=False):
@@ -136,16 +138,18 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
         batches = [ptu.np_to_pytorch_batch(self.enc_replay_buffer.random_batch(idx, batch_size=self.embedding_batch_size, sequence=self.recurrent)) for idx in indices]
         context = [self.unpack_batch(batch, sparse_reward=self.sparse_rewards) for batch in batches]
         # group like elements together
+
         context = [[x[i] for x in context] for i in range(len(context[0]))]
         context = [torch.cat(x, dim=0) for x in context]
         # full context consists of [obs, act, rewards, next_obs, terms]
         # if dynamics don't change across tasks, don't include next_obs
         # don't include terminals in context
+        image_context = context[0]
         if self.use_next_obs_in_context:
-            context = torch.cat(context[:-1], dim=2)
+            context = torch.cat(context[1:-1], dim=2)
         else:
-            context = torch.cat(context[:-2], dim=2)
-        return context
+            context = torch.cat(context[1:-2], dim=2)
+        return image_context, context
 
     ##### Training #####
     def _do_training(self, indices):
@@ -153,7 +157,7 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
         num_updates = self.embedding_batch_size // mb_size
 
         # sample context batch
-        context_batch = self.sample_context(indices)
+        image_context_batch, context_batch = self.sample_context(indices)
 
         # zero out context and hidden encoder state
         self.agent.clear_z(num_tasks=len(indices))
@@ -161,21 +165,23 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
         # do this in a loop so we can truncate backprop in the recurrent encoder
         for i in range(num_updates):
             context = context_batch[:, i * mb_size: i * mb_size + mb_size, :]
-            self._take_step(indices, context)
+            image_context = image_context_batch[:, i * mb_size: i * mb_size + mb_size, :]
+            self._take_step(indices, context, image_context)
 
             # stop backprop
             self.agent.detach_z()
 
     def _min_q(self, obs, actions, task_z):
-        q1 = self.qf1(obs, actions, task_z.detach())
-        q2 = self.qf2(obs, actions, task_z.detach())
+        additional_input = torch.cat([actions, task_z.detach()], dim=1)
+        q1 = self.qf1(obs, additional_input)#actions, task_z.detach())
+        q2 = self.qf2(obs, additional_input)#actions, task_z.detach())
         min_q = torch.min(q1, q2)
         return min_q
 
     def _update_target_network(self):
         ptu.soft_update_from_to(self.vf, self.target_vf, self.soft_target_tau)
 
-    def _take_step(self, indices, context):
+    def _take_step(self, indices, context, image_context):
 
         num_tasks = len(indices)
 
@@ -183,19 +189,22 @@ class PEARLSoftActorCritic(MetaRLAlgorithm):
         obs, actions, rewards, next_obs, terms = self.sample_sac(indices)
 
         # run inference in networks
-        policy_outputs, task_z = self.agent(obs, context)
+        policy_outputs, task_z = self.agent(obs, image_context, context, aug_random=True)
         new_actions, policy_mean, policy_log_std, log_pi = policy_outputs[:4]
 
         # flattens out the task dimension
-        t, b, _ = obs.size()
-        obs = obs.view(t * b, -1)
+        t, b, _, _, _ = obs.size()
+        obs = obs.view(t * b, *obs.shape[2:])
+        obs = augment_obs(obs, random=True)
         actions = actions.view(t * b, -1)
-        next_obs = next_obs.view(t * b, -1)
+        next_obs = next_obs.view(t * b, *next_obs.shape[2:])
+        next_obs = augment_obs(next_obs, random=True)
 
         # Q and V networks
         # encoder will only get gradients from Q nets
-        q1_pred = self.qf1(obs, actions, task_z)
-        q2_pred = self.qf2(obs, actions, task_z)
+        additional_input = torch.cat([actions, task_z], dim=1).cuda()
+        q1_pred = self.qf1(obs, additional_input)
+        q2_pred = self.qf2(obs, additional_input)
         v_pred = self.vf(obs, task_z.detach())
         # get targets for use in V and Q updates
         with torch.no_grad():

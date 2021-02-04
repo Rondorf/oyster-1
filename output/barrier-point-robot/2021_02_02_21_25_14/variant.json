@@ -1,0 +1,50 @@
+{
+  "algo_params": {
+    "batch_size": 256,
+    "context_lr": 0.0003,
+    "discount": 0.9,
+    "dump_eval_paths": false,
+    "embedding_batch_size": 1024,
+    "embedding_mini_batch_size": 1024,
+    "kl_lambda": 1.0,
+    "max_path_length": 60,
+    "meta_batch": 16,
+    "num_evals": 2,
+    "num_exp_traj_eval": 0,
+    "num_extra_rl_steps_posterior": 0,
+    "num_initial_steps": 200,
+    "num_iterations": 500,
+    "num_steps_per_eval": 120,
+    "num_steps_posterior": 900,
+    "num_steps_prior": 100,
+    "num_tasks_sample": 10,
+    "num_train_steps_per_itr": 1000,
+    "policy_lr": 0.0003,
+    "qf_lr": 0.0003,
+    "recurrent": false,
+    "reward_scale": 100.0,
+    "soft_target_tau": 0.005,
+    "sparse_rewards": 0,
+    "update_post_train": 1,
+    "use_information_bottleneck": true,
+    "use_next_obs_in_context": false,
+    "vf_lr": 0.0003
+  },
+  "env_name": "barrier-point-robot",
+  "env_params": {
+    "n_tasks": 80,
+    "randomize_tasks": true
+  },
+  "latent_size": 5,
+  "n_eval_tasks": 20,
+  "n_train_tasks": 60,
+  "net_size": 128,
+  "path_to_weights": null,
+  "util_params": {
+    "base_log_dir": "output",
+    "debug": false,
+    "docker": false,
+    "gpu_id": 1,
+    "use_gpu": true
+  }
+}

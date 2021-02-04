@@ -12,15 +12,17 @@ import torch
 from rlkit.envs import ENVS
 from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.torch.sac.policies import TanhGaussianPolicy
-from rlkit.torch.networks import FlattenMlp, MlpEncoder, RecurrentEncoder
-from rlkit.torch.sac.sac import PEARLSoftActorCritic
-from rlkit.torch.sac.agent import PEARLAgent
+from rlkit.torch.networks import *
+from rlkit.torch.sac.sac import *
+from rlkit.torch.sac.agent import PEARLAgent, PEARLImageAgent
 from rlkit.launchers.launcher_util import setup_logger
 import rlkit.torch.pytorch_util as ptu
 from configs.default import default_config
 
 
 def experiment(variant):
+    # optional GPU mode
+    #ptu.set_gpu_mode(variant['util_params']['use_gpu'], variant['util_params']['gpu_id'])
 
     # create multi-task environment and sample tasks
     env = NormalizedBoxEnv(ENVS[variant['env_name']](**variant['env_params']))
@@ -35,41 +37,89 @@ def experiment(variant):
     context_encoder_output_dim = latent_dim * 2 if variant['algo_params']['use_information_bottleneck'] else latent_dim
     net_size = variant['net_size']
     recurrent = variant['algo_params']['recurrent']
-    encoder_model = RecurrentEncoder if recurrent else MlpEncoder
+    #encoder_model = RecurrentEncoder if recurrent else MlpEncoder
 
-    context_encoder = encoder_model(
-        hidden_sizes=[200, 200, 200],
-        input_size=context_encoder_input_dim,
-        output_size=context_encoder_output_dim,
-    )
-    qf1 = FlattenMlp(
-        hidden_sizes=[net_size, net_size, net_size],
-        input_size=obs_dim + action_dim + latent_dim,
+    context_encoder = ConvEncoder(
+        image_size=70,
+        input_channels=3,
+        conv_hidden_info=[(32,3,2), (32,3,1), (32,3,1), (32,3,1)],
+        feature_dim=50,
+        fc_hidden_sizes=[1024, 1024],
+        additional_input_size=action_dim + reward_dim,
+        output_size=context_encoder_output_dim
+    ).cuda()
+    #context_encoder = encoder_model(
+    #    hidden_sizes=[200, 200, 200],
+    #    input_size=context_encoder_input_dim,
+    #    output_size=context_encoder_output_dim,
+    #)
+    #qf1 = FlattenMlp(
+    #    hidden_sizes=[net_size, net_size, net_size],
+    #    input_size=obs_dim + action_dim + latent_dim,
+    #    output_size=1,
+    #)
+    qf1 = ConvNet(
+        image_size=70,
+        input_channels=3,
+        conv_hidden_info=[(32, 3, 2), (32, 3, 1), (32, 3, 1), (32, 3, 1)],
+        feature_dim=50,
+        fc_hidden_sizes=[1024, 1024],
+        additional_input_size=action_dim + latent_dim,
+        output_size=1
+    ).cuda()
+    #qf2 = FlattenMlp(
+    #    hidden_sizes=[net_size, net_size, net_size],
+    #    input_size=obs_dim + action_dim + latent_dim,
+    #    output_size=1,
+    #)
+    mutual_encoder = qf1.conv_subnet
+    qf2 = ConvNet(
+        image_size=70,
+        input_channels=3,
+        conv_hidden_info=[(32, 3, 2), (32, 3, 1), (32, 3, 1), (32, 3, 1)],
+        feature_dim=50,
+        fc_hidden_sizes=[1024, 1024],
+        additional_input_size=action_dim + latent_dim,
         output_size=1,
-    )
-    qf2 = FlattenMlp(
-        hidden_sizes=[net_size, net_size, net_size],
-        input_size=obs_dim + action_dim + latent_dim,
+        encoder=mutual_encoder
+    ).cuda()
+    #vf = FlattenMlp(
+    #    hidden_sizes=[net_size, net_size, net_size],
+    #    input_size=obs_dim + latent_dim,
+    #    output_size=1,
+    #)
+    vf = ConvNet(
+        image_size=70,
+        input_channels=3,
+        conv_hidden_info=[(32, 3, 2), (32, 3, 1), (32, 3, 1), (32, 3, 1)],
+        feature_dim=50,
+        fc_hidden_sizes=[1024, 1024],
+        additional_input_size=latent_dim,
         output_size=1,
-    )
-    vf = FlattenMlp(
-        hidden_sizes=[net_size, net_size, net_size],
-        input_size=obs_dim + latent_dim,
-        output_size=1,
-    )
-    policy = TanhGaussianPolicy(
-        hidden_sizes=[net_size, net_size, net_size],
-        obs_dim=obs_dim + latent_dim,
-        latent_dim=latent_dim,
+        encoder=mutual_encoder
+    ).cuda()
+    #policy = TanhGaussianPolicy(
+    #   hidden_sizes=[net_size, net_size, net_size],
+    #    obs_dim=obs_dim + latent_dim,
+    #    latent_dim=latent_dim,
+    #    action_dim=action_dim,
+    #)
+    policy = ConvTanhGaussianPolicy(
+        image_size=70,
+        input_channels=3,
         action_dim=action_dim,
-    )
-    agent = PEARLAgent(
+        fc_sizes=[1024, 1024],
+        conv_sizes=[(32, 3, 2), (32, 3, 1), (32, 3, 1), (32, 3, 1)],
+        feature_dim=50,
+        additional_input_dim=latent_dim
+    ).cuda()
+    agent = PEARLImageAgent(
         latent_dim,
         context_encoder,
         policy,
         **variant['algo_params']
-    )
-    algorithm = PEARLSoftActorCritic(
+    ).cuda()
+    algorithm = PEARLSoftActorCriticImage(
         env=env,
         train_tasks=list(tasks[:variant['n_train_tasks']]),
         eval_tasks=list(tasks[-variant['n_eval_tasks']:]),
@@ -89,8 +139,7 @@ def experiment(variant):
         algorithm.networks[-2].load_state_dict(torch.load(os.path.join(path, 'target_vf.pth')))
         policy.load_state_dict(torch.load(os.path.join(path, 'policy.pth')))
 
-    # optional GPU mode
-    ptu.set_gpu_mode(variant['util_params']['use_gpu'], variant['util_params']['gpu_id'])
+
     if ptu.gpu_enabled():
         algorithm.to()
 
