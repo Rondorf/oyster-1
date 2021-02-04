@@ -493,3 +493,48 @@ Epoch                                  10
 ----------------------------------  ---------------
 2021-02-04 23:10:26.183508 IST | [2021_02_04_22_18_36] Iteration #10 | Epoch Duration: 279.9012007713318
 2021-02-04 23:10:26.183737 IST | [2021_02_04_22_18_36] Iteration #10 | Started Training: False
+----------------------------------  -------------
+Z mean train                            0.188148
+Z variance train                        0.829093
+KL Divergence                           0.851757
+KL Loss                                 0.851757
+QF Loss                                28.4987
+VF Loss                                 1.91099
+Policy Loss                            38.9505
+Q Predictions Mean                    -40.5805
+Q Predictions Std                      16.2989
+Q Predictions Max                     -15.7525
+Q Predictions Min                     -73.3549
+V Predictions Mean                    -40.0267
+V Predictions Std                      16.6825
+V Predictions Max                     -14.9439
+V Predictions Min                     -72.4293
+Log Pis Mean                           -1.30283
+Log Pis Std                             0.364259
+Log Pis Max                            -0.32855
+Log Pis Min                            -3.07829
+Policy mu Mean                          0.0636296
+Policy mu Std                           0.182987
+Policy mu Max                           0.256118
+Policy mu Min                          -0.121491
+Policy log std Mean                    -0.120778
+Policy log std Std                      0.0210445
+Policy log std Max                     -0.0861921
+Policy log std Min                     -0.154896
+Z mean eval                             0.300168
+Z variance eval                         1.0661
+AverageTrainReturn_all_train_tasks    -17.143
+AverageReturn_all_train_tasks         -30.3608
+AverageReturn_all_test_tasks          -31.6221
+Number of train steps total          1200
+Number of env steps total           68000
+Number of rollouts total                0
+Train Time (s)                         91.3522
+(Previous) Eval Time (s)              120.584
+Sample Time (s)                        65.3683
+Epoch Time (s)                        277.304
+Total Train Time (s)                 3386.63
+Epoch                                  11
+----------------------------------  -------------
+2021-02-04 23:15:03.373615 IST | [2021_02_04_22_18_36] Iteration #11 | Epoch Duration: 277.189697265625
+2021-02-04 23:15:03.373859 IST | [2021_02_04_22_18_36] Iteration #11 | Started Training: False
